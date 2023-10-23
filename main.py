@@ -121,24 +121,38 @@ def puntuarIndiviuos(individuos, dimension):
         puntuados.append(puntuado)
     return puntuados
     
-def seleccion(individuosPuntuados):
-    # ruleta = [0 for i in range(100)] 
+def seleccion(individuosPuntuados, poblacion):
     sumaPuntos = 0
     for puntuado in individuosPuntuados:
         sumaPuntos += puntuado[1]
     candidatos = []
+    total = 0
     for puntuado in individuosPuntuados:
         probabilidad = 1 - puntuado[1] / sumaPuntos
+        total += int(probabilidad*10)
         candidatos.append((puntuado[0], puntuado[1], probabilidad))
-    candidatos = sorted(candidatos, key = lambda c: c[2], reverse=True)
-    seleccionados = []
+    ruleta = [0 for _ in range(total)]
     for candidato in candidatos:
-        puntero = random.random()
-        probabilidad = candidato[2]
-        if puntero <= probabilidad:
-            seleccionados.append(candidato[0])
-        if len(seleccionados) == 2:
-            break
+        cantidad = int(candidato[2]*10)
+        for _ in range(cantidad):
+            while True:
+                index = random.randint(0, total-1)
+                if ruleta[index] == 0:
+                    break
+            ruleta[index] = candidato[0]
+    seleccionados = []
+    indicesSeleccionados = []
+    for _ in range(2):
+        while True:
+            index = random.randint(0, total-1)
+            if not index in indicesSeleccionados:
+                if not ruleta[index] in indicesSeleccionados:
+                    seleccionados.append(ruleta[index])
+                    indicesSeleccionados.append(ruleta[index])
+                    break
+    for i in range(len(seleccionados)):
+        index = poblacion.index(seleccionados[i])
+        del poblacion[index]
     return seleccionados
 
 def cruzamiento(padres):
@@ -146,17 +160,75 @@ def cruzamiento(padres):
     masculino = padres[1]
     corte = random.randint(1, len(femenino)-1)
     hijo1 = femenino[:corte]
-    hijo1.extend(masculino[corte:])
-    pass
+    hijo1[corte:] = masculino[corte:]
+    
+    hijo2 = masculino[:corte]
+    hijo2[corte:] = femenino[corte:]
+    return [hijo1, hijo2]
+
+def mutacion(hijos):
+    n = len(hijos[0])
+    quePosicionMutar = random.randint(0, n-1)
+    queHijoMutar = random.choice(hijos)
+    queHijoMutar[quePosicionMutar] = [0 for _ in range(n)]
+    index = random.randint(0, n-1)
+    queHijoMutar[quePosicionMutar][index] = 1
+    return hijos   
+
+def actualizarPoblacion(padres, hijos, poblacion:list):
+    # for i in range(len(padres)):
+    #     index = poblacion.index(padres[i])
+    #     del poblacion[index]
+    poblacion.extend(hijos)
+    
+def verMatriz(matriz):
+    resp = funcionAptitud(matriz, len(matriz))
+    for i in range(len(matriz)):
+        print(resp[0][i])
+    print(resp[1])
+    print()
+    
+def evaluar(individuo, minimo):
+    ataques = funcionAptitud(individuo, dimension)[1]
+    if ataques <= minimo:
+        return True
+    return False
     
 
 dimension = 4
 tamanioPoblacion = 20
 tamanioSubpoblacion = 4
+minimo = 2
 poblacionInicial = generarPoblacion(dimension, tamanioPoblacion)
 subpoblacion = extraerPoblacion(poblacionInicial, tamanioSubpoblacion)
-puntuados = puntuarIndiviuos(subpoblacion, dimension)
-padres = seleccion(puntuados)
-hijos = cruzamiento(padres)
-print(funcionAptitud(poblacionInicial[0], dimension))
+generaciones = 100000
+contador = 0
+solucion = None
+while True:
+    
+    puntuados = puntuarIndiviuos(subpoblacion, dimension)
+    padres = seleccion(puntuados, subpoblacion)
+    hijos = cruzamiento(padres)
+    mutados = mutacion(hijos)
+    subpoblacion.extend(mutados)
+    if contador == generaciones:
+        verMatriz(mutados[0])
+        verMatriz(mutados[1])
+        solucion = mutados[0]
+        print('por generacion')
+        break
+    if evaluar(mutados[0], minimo):
+        solucion = mutados[0]
+        verMatriz(mutados[0])
+        print('por minimo')
+        break
+    if evaluar(mutados[1], minimo):
+        solucion = mutados[1]
+        verMatriz(mutados[1])
+        print('por minimo')
+        break
+    contador += 1
+
+# print(funcionAptitud(poblacionInicial[0], dimension))
 # tab.guardar(poblacionInicial[0], 'original.svg', dimension)
+tab.guardar(solucion, 'solucion.svg', dimension)
